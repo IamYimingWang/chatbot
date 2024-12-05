@@ -1,2 +1,4 @@
 streamlit
 openai
+google-cloud-bigquery
+openai==0.28.0
