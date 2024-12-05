@@ -33,11 +33,18 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Dropdown for table selection
-selected_table = st.selectbox(
-    "Select a table to query", 
-    ["Disease", "Location", "Report", "Weekly_Data"]
-)
+
+def is_relevant_query(prompt):
+    """Check if the user query contains relevant keywords."""
+    if not prompt:  # Check if prompt is None or empty
+        return False
+
+    keywords = st.session_state.keywords
+    for keyword in keywords:
+        if keyword and keyword in prompt.lower():  # Ensure keyword is not None
+            return True
+    return False
+
 
 # Chat input field
 if prompt := st.chat_input("Ask a question:"):
@@ -45,44 +52,24 @@ if prompt := st.chat_input("Ask a question:"):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Determine type of question
-    if "bigquery" in prompt.lower():
-        # Construct dynamic SQL query based on selected table
-        sql_query = f"SELECT * FROM `ba-882-group3.NNDSS_Dataset.{selected_table}` LIMIT 10"
+    if is_relevant_query(prompt):
+        # Example: Determine query type from prompt
+        if "disease" in prompt.lower():
+            sql_query = "SELECT * FROM `ba-882-group3.NNDSS_Dataset.Disease` LIMIT 10"
+        elif "state" in prompt.lower():
+            sql_query = "SELECT * FROM `ba-882-group3.NNDSS_Dataset.Location` LIMIT 10"
+        elif "mmwr_year" in prompt.lower():
+            sql_query = "SELECT * FROM `ba-882-group3.NNDSS_Dataset.Report` LIMIT 10"
+        
+
         try:
             query_job = bq_client.query(sql_query)
             results = query_job.result()
-            response = f"BigQuery Results from {selected_table}:\n{[dict(row) for row in results]}"
+            response = f"BigQuery Results:\n{[dict(row) for row in results]}"
         except Exception as e:
             response = f"Error querying BigQuery: {e}"
-
-    elif "function" in prompt.lower():
-        # Example Cloud Function call
-        function_url = "https://us-central1-ba-882-group3.cloudfunctions.net/weekly_data"
-        payload = {"input": prompt}
-        try:
-            cf_response = requests.post(function_url, json=payload)
-            if cf_response.status_code == 200:
-                response = cf_response.json()
-            else:
-                response = f"Cloud Function Error: {cf_response.status_code}"
-        except Exception as e:
-            response = f"Error calling Cloud Function: {e}"
-
     else:
-        # OpenAI GPT response
-        stream = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-        response = ""
-        for chunk in stream:
-            response += chunk["choices"][0]["delta"].get("content", "")
-
+        response = "Please ask again, I can only answer questions regarding the dataset."
 
     # Display response
     with st.chat_message("assistant"):
@@ -138,6 +125,63 @@ def handle_query(selected_query):
     except Exception as e:
         return f"Error running query '{selected_query}': {e}"
 
+def fetch_keywords():
+    """Fetch distinct keywords from BigQuery for relevance checking."""
+    keywords = set()
+
+    # Correct column names based on BigQuery schema
+    disease_query = "SELECT DISTINCT disease_name FROM `ba-882-group3.NNDSS_Dataset.Disease`"
+    states_query = "SELECT DISTINCT states FROM `ba-882-group3.NNDSS_Dataset.Location`"
+    year_query = "SELECT DISTINCT mmwr_year FROM `ba-882-group3.NNDSS_Dataset.Report`"  # Updated to mmwr_year
+
+    try:
+        # Fetch distinct diseases
+        disease_results = bq_client.query(disease_query).result()
+        diseases = [row["disease_name"] for row in disease_results if row["disease_name"]]
+        keywords.update(d.lower() for d in diseases)
+
+        # Fetch distinct states
+        states_results = bq_client.query(states_query).result()
+        states = [row["states"] for row in states_results if row["states"]]
+        keywords.update(s.lower() for s in states)
+
+        # Fetch distinct years
+        year_results = bq_client.query(year_query).result()
+        years = [row["mmwr_year"] for row in year_results if row["mmwr_year"]]  # Corrected to mmwr_year
+        keywords.update(str(y) for y in years)
+
+        # Debugging output
+        st.write("Fetched diseases:", diseases)
+        st.write("Fetched states:", states)
+        st.write("Fetched years:", years)
+
+    except Exception as e:
+        st.error(f"Error fetching keywords from BigQuery: {e}")
+
+    # Add other important keywords manually
+    important_keywords = ["bigquery", "disease", "location", "report", "weekly_data"]
+    keywords.update(important_keywords)
+
+    return keywords
+
+# Cache the keywords to avoid querying BigQuery repeatedly
+if "keywords" not in st.session_state:
+    st.session_state.keywords = fetch_keywords()
+
+
+def construct_query_from_prompt(prompt):
+    """Generate a SQL query based on the user's input."""
+    if "disease" in prompt.lower():
+        keyword = [k for k in st.session_state.keywords if k in prompt.lower()][0]
+        return f"SELECT * FROM `ba-882-group3.NNDSS_Dataset.Disease` WHERE disease_name LIKE '%{keyword}%' LIMIT 10"
+    elif "state" in prompt.lower():
+        keyword = [k for k in st.session_state.keywords if k in prompt.lower()][0]
+        return f"SELECT * FROM `ba-882-group3.NNDSS_Dataset.Location` WHERE states LIKE '%{keyword}%' LIMIT 10"
+    elif "year" in prompt.lower() or "mmwr_year" in prompt.lower():  # Handles both 'year' and 'mmwr_year'
+        keyword = [k for k in st.session_state.keywords if k in prompt.lower()][0]
+        return f"SELECT * FROM `ba-882-group3.NNDSS_Dataset.Report` WHERE mmwr_year = '{keyword}' LIMIT 10"
+    return None
+
 
 # Fetch list of query names from metadata table
 query_list_query = "SELECT QueryName FROM `ba-882-group3.NNDSS_Dataset.QueryMetadata` ORDER BY QueryName"
@@ -153,3 +197,22 @@ if query_options:
         st.write(response)
 else:
     st.warning("No queries found in metadata. Please add queries to the QueryMetadata table.")
+
+if is_relevant_query(prompt):
+    sql_query = construct_query_from_prompt(prompt)
+    if sql_query:
+        try:
+            query_job = bq_client.query(sql_query)
+            results = query_job.result()
+            response = f"BigQuery Results:\n{[dict(row) for row in results]}"
+        except Exception as e:
+            response = f"Error querying BigQuery: {e}"
+    else:
+        response = "Please specify your question more clearly."
+else:
+    response = "Please ask again, I can only answer questions regarding the dataset."
+if "keywords" not in st.session_state:
+    try:
+        st.session_state.keywords = fetch_keywords()
+    except Exception:
+        st.session_state.keywords = {"bigquery", "disease", "location", "report", "weekly_data"}
