@@ -3,7 +3,7 @@ import openai
 from google.cloud import bigquery
 import os
 from google.oauth2 import service_account
-
+import pandas as pd
 
 
 # Prompt the user for OpenAI API key at the very beginning
@@ -117,16 +117,24 @@ def ask_openai(prompt):
         return f"Error interacting with OpenAI: {e}"
 
 def get_disease_mapping():
-    """Fetch a mapping of disease_id to disease_name."""
-    mapping_query = "SELECT disease_id, disease_name FROM `ba-882-group3.NNDSS_Dataset.Disease`"
-    results = run_bigquery(mapping_query)
-    return {row["disease_id"]: row["disease_name"] for row in results}
+    """Fetch disease_id to disease_name mapping."""
+    try:
+        query = "SELECT disease_id, disease_name FROM `ba-882-group3.NNDSS_Dataset.Disease`"
+        results = run_bigquery(query)
+        return {row["disease_id"]: row["disease_name"] for row in results}
+    except Exception as e:
+        st.error(f"Error fetching disease mapping: {e}")
+        return {}
 
 def get_location_mapping():
-    """Fetch a mapping of location_id to location_name."""
-    mapping_query = "SELECT location_id, location_name FROM `ba-882-group3.NNDSS_Dataset.Location`"
-    results = run_bigquery(mapping_query)
-    return {row["location_id"]: row["location_name"] for row in results}
+    """Fetch location_id to location_name mapping."""
+    try:
+        query = "SELECT location_id, location_name FROM `ba-882-group3.NNDSS_Dataset.Location`"
+        results = run_bigquery(query)
+        return {row["location_id"]: row["location_name"] for row in results}
+    except Exception as e:
+        st.error(f"Error fetching location mapping: {e}")
+        return {}
 
 # Function to process user-selected query
 def handle_query(selected_query):
@@ -148,13 +156,11 @@ def handle_query(selected_query):
         return f"No results found for query '{selected_query}'."
 
     disease_mapping = get_disease_mapping()
+    location_mapping = get_location_mapping()
     for row in query_results:
         if "disease_id" in row:
             disease_id = row["disease_id"]
             row["disease_id"] = disease_mapping.get(disease_id, f"Unknown Disease ID: {disease_id}")
-
-    location_mapping = get_location_mapping()
-    for row in query_results:
         if "location_id" in row:
             location_id = row["location_id"]
             row["location_id"] = location_mapping.get(location_id, f"Unknown Location ID: {location_id}")
@@ -162,10 +168,17 @@ def handle_query(selected_query):
     # Format results for display
     result_string = "\n".join([str(row) for row in query_results[:10]])  # Display top 10 rows
     openai_prompt = f"The user selected query: '{selected_query}'. Description: {query_description}. Results:\n{result_string}\nPlease summarize this information."
-
-    # Generate analysis using OpenAI
     analysis = ask_openai(openai_prompt)
-    return f"**Query Results:**\n{result_string}\n\n**Analysis:**\n{analysis}"
+
+    # Display query results as a table
+    st.subheader("Query Results")
+    query_results_top10 = query_results[:10]
+    st.dataframe(pd.DataFrame(query_results_top10))  # Display the results as a table
+    st.caption("Only the top 10 rows are displayed.")
+
+    # Display OpenAI-generated analysis
+    st.subheader("OpenAI Analysis")
+    st.markdown(analysis)
 
 # Display chat messages
 for message in st.session_state.messages:
