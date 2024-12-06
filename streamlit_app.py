@@ -116,6 +116,18 @@ def ask_openai(prompt):
     except Exception as e:
         return f"Error interacting with OpenAI: {e}"
 
+def get_disease_mapping():
+    """Fetch a mapping of disease_id to disease_name."""
+    mapping_query = "SELECT disease_id, disease_name FROM `ba-882-group3.NNDSS_Dataset.Disease`"
+    results = run_bigquery(mapping_query)
+    return {row["disease_id"]: row["disease_name"] for row in results}
+
+def get_location_mapping():
+    """Fetch a mapping of location_id to location_name."""
+    mapping_query = "SELECT location_id, location_name FROM `ba-882-group3.NNDSS_Dataset.Location`"
+    results = run_bigquery(mapping_query)
+    return {row["location_id"]: row["location_name"] for row in results}
+
 # Function to process user-selected query
 def handle_query(selected_query):
     """Fetch and execute a predefined query based on user's selection."""
@@ -135,6 +147,18 @@ def handle_query(selected_query):
     if not query_results:
         return f"No results found for query '{selected_query}'."
 
+    disease_mapping = get_disease_mapping()
+    for row in query_results:
+        if "disease_id" in row:
+            disease_id = row["disease_id"]
+            row["disease_id"] = disease_mapping.get(disease_id, f"Unknown Disease ID: {disease_id}")
+
+    location_mapping = get_location_mapping()
+    for row in query_results:
+        if "location_id" in row:
+            location_id = row["location_id"]
+            row["location_id"] = location_mapping.get(location_id, f"Unknown Location ID: {location_id}")
+
     # Format results for display
     result_string = "\n".join([str(row) for row in query_results[:10]])  # Display top 10 rows
     openai_prompt = f"The user selected query: '{selected_query}'. Description: {query_description}. Results:\n{result_string}\nPlease summarize this information."
@@ -147,6 +171,24 @@ def handle_query(selected_query):
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+
+
+
+# Fetch list of query names from metadata table
+query_list_query = "SELECT QueryDescription FROM `ba-882-group3.NNDSS_Dataset.QueryMetadata` ORDER BY QueryDescription"
+query_description = run_bigquery(query_list_query)
+query_options = [row['QueryDescription'] for row in query_description]
+
+if query_options:
+    selected_query = st.radio("What are you interested in:", query_options)
+    if st.button("Run Query"):
+        with st.spinner("Running query and generating analysis..."):
+            response = handle_query(selected_query)
+        st.success("Query Complete!")
+        st.write(response)
+else:
+    st.warning("No queries found in metadata. Please add queries to the QueryMetadata table.")
+
 
 # Chat input
 if prompt := st.chat_input("Ask a question:"):
@@ -170,19 +212,3 @@ if prompt := st.chat_input("Ask a question:"):
             assistant_response = "Unable to construct a query based on your input."
     else:
         assistant_response = "Your question doesn't seem related to the database."
-
-
-# Fetch list of query names from metadata table
-query_list_query = "SELECT QueryDescription FROM `ba-882-group3.NNDSS_Dataset.QueryMetadata` ORDER BY QueryDescription"
-query_description = run_bigquery(query_list_query)
-query_options = [row['QueryDescription'] for row in query_description]
-
-if query_options:
-    selected_query = st.radio("What are you interested in:", query_options)
-    if st.button("Run Query"):
-        with st.spinner("Running query and generating analysis..."):
-            response = handle_query(selected_query)
-        st.success("Query Complete!")
-        st.write(response)
-else:
-    st.warning("No queries found in metadata. Please add queries to the QueryMetadata table.")
