@@ -63,7 +63,7 @@ if not st.session_state.keywords:
 
 # Show title and description after the API key is entered
 st.title("Disease Insights Chatbot")
-st.write("Ask questions related to historical disease data and get insights!")
+st.write("Ask questions related to US disease data and get insights!")
 
 
 # Function to check if the query is relevant
@@ -167,3 +167,20 @@ if prompt := st.chat_input("Ask a question:"):
             assistant_response = "Unable to construct a query based on your input."
     else:
         assistant_response = "Your question doesn't seem related to the database."
+
+
+# Fetch list of query names from metadata table
+query_list_query = "SELECT QueryDescription FROM `ba-882-group3.NNDSS_Dataset.QueryMetadata` ORDER BY QueryDescription"
+query_description = run_bigquery(query_list_query)
+query_options = [row['QueryDescription'] for row in query_description]
+
+if query_options:
+    selected_query = st.radio("What are you interested in:", query_options)
+    if st.button("Run Query"):
+        with st.spinner("Running query and generating analysis..."):
+            response = handle_query(selected_query)
+        st.success("Query Complete!")
+        st.write(response)
+else:
+    st.warning("No queries found in metadata. Please add queries to the QueryMetadata table.")
+
