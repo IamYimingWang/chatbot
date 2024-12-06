@@ -212,3 +212,7 @@ if prompt := st.chat_input("Ask a question:"):
             assistant_response = "Unable to construct a query based on your input."
     else:
         assistant_response = "Your question doesn't seem related to the database."
+    # Display response
+    with st.chat_message("assistant"):
+        st.markdown(assistant_response)
+    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
