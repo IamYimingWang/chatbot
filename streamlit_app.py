@@ -4,11 +4,9 @@ from google.cloud import bigquery
 import requests
 import os
 
-with open("/tmp/google_credentials.json", "w") as f:
-    f.write(st.secrets["GOOGLE_APPLICATION_CREDENTIALS"])
 
 openai_api_key = st.secrets["OPENAI_API_KEY"]
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/tmp/google_credentials.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = st.secrets["GOOGLE_APPLICATION_CREDENTIALS_PATH"]
 
 try:
     bq_client = bigquery.Client()
