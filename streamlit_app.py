@@ -2,6 +2,9 @@ import streamlit as st
 import openai
 from google.cloud import bigquery
 import os
+from google.oauth2 import service_account
+
+
 
 # Prompt the user for OpenAI API key at the very beginning
 openai_api_key = st.text_input("Enter your OpenAI API Key:", type="password")
@@ -15,8 +18,8 @@ else:
 
 # Initialize BigQuery client
 try:
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = st.secrets["GOOGLE_APPLICATION_CREDENTIALS_PATH"]
-    bq_client = bigquery.Client()
+    credentials = service_account.Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]))
+    bq_client = bigquery.Client(credentials=credentials)
     st.success("Connected to BigQuery successfully!")
 except Exception as e:
     st.error(f"Failed to connect to BigQuery: {e}")
@@ -183,4 +186,3 @@ if query_options:
         st.write(response)
 else:
     st.warning("No queries found in metadata. Please add queries to the QueryMetadata table.")
-
