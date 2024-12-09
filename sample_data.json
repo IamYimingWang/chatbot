@@ -1,0 +1,175 @@
+{
+    "Disease": [
+        {
+            "disease_id": 5817105826,
+            "disease_name": "Mpox"
+        },
+        {
+            "disease_id": 1429343741,
+            "disease_name": "Mpox"
+        },
+        {
+            "disease_id": 8144524784,
+            "disease_name": "Mpox"
+        },
+        {
+            "disease_id": 3027716169,
+            "disease_name": "Mpox"
+        },
+        {
+            "disease_id": 3851115593,
+            "disease_name": "Mumps"
+        }
+    ],
+    "Location": [
+        {
+            "location_id": 280835299,
+            "location_name": "EAST NORTH CENTRAL",
+            "states": "",
+            "location2": "EAST NORTH CENTRAL",
+            "longitude": null,
+            "latitude": null
+        },
+        {
+            "location_id": 203946820,
+            "location_name": "EAST SOUTH CENTRAL",
+            "states": "",
+            "location2": "EAST SOUTH CENTRAL",
+            "longitude": null,
+            "latitude": null
+        },
+        {
+            "location_id": 130283020,
+            "location_name": "WEST NORTH CENTRAL",
+            "states": "",
+            "location2": "WEST NORTH CENTRAL",
+            "longitude": null,
+            "latitude": null
+        },
+        {
+            "location_id": 286346134,
+            "location_name": "MIDDLE ATLANTIC",
+            "states": "",
+            "location2": "MIDDLE ATLANTIC",
+            "longitude": null,
+            "latitude": null
+        },
+        {
+            "location_id": 463744947,
+            "location_name": "MOUNTAIN",
+            "states": "",
+            "location2": "MOUNTAIN",
+            "longitude": null,
+            "latitude": null
+        }
+    ],
+    "Report": [
+        {
+            "report_id": 792583368,
+            "mmwr_year": 2024,
+            "mmwr_week": 1,
+            "states": "GEORGIA",
+            "label": "Mpox"
+        },
+        {
+            "report_id": 7852270121,
+            "mmwr_year": 2024,
+            "mmwr_week": 1,
+            "states": "IDAHO",
+            "label": "Mpox"
+        },
+        {
+            "report_id": 2105639304,
+            "mmwr_year": 2024,
+            "mmwr_week": 1,
+            "states": "OREGON",
+            "label": "Mpox"
+        },
+        {
+            "report_id": 1392273604,
+            "mmwr_year": 2024,
+            "mmwr_week": 1,
+            "states": "PENNSYLVANIA",
+            "label": "Mpox"
+        },
+        {
+            "report_id": 2828954121,
+            "mmwr_year": 2024,
+            "mmwr_week": 1,
+            "states": "MINNESOTA",
+            "label": "Mpox"
+        }
+    ],
+    "Weekly_Data": [
+        {
+            "data_id": 2051032974,
+            "location_id": 1679494609,
+            "report_id": 5383522048,
+            "disease_id": 3367990528,
+            "current_week": 0,
+            "current_week_flag": "-",
+            "previous_52_week_max": 11,
+            "previous_52_week_max_flag": "-",
+            "cumulative_ytd": 0,
+            "cumulative_ytd_flag": "-",
+            "cumulative_ytd_previous": 0,
+            "cumulative_ytd_previous_flag": "-"
+        },
+        {
+            "data_id": 5245382796,
+            "location_id": 1679494609,
+            "report_id": 5383522048,
+            "disease_id": 3367990528,
+            "current_week": 0,
+            "current_week_flag": "-",
+            "previous_52_week_max": 2,
+            "previous_52_week_max_flag": "-",
+            "cumulative_ytd": 0,
+            "cumulative_ytd_flag": "-",
+            "cumulative_ytd_previous": 0,
+            "cumulative_ytd_previous_flag": "-"
+        },
+        {
+            "data_id": 7653191237,
+            "location_id": 1679494609,
+            "report_id": 5383522048,
+            "disease_id": 3367990528,
+            "current_week": 0,
+            "current_week_flag": "-",
+            "previous_52_week_max": 1,
+            "previous_52_week_max_flag": "-",
+            "cumulative_ytd": 0,
+            "cumulative_ytd_flag": "-",
+            "cumulative_ytd_previous": 0,
+            "cumulative_ytd_previous_flag": "-"
+        },
+        {
+            "data_id": 8602608854,
+            "location_id": 1679494609,
+            "report_id": 5383522048,
+            "disease_id": 3367990528,
+            "current_week": 0,
+            "current_week_flag": "-",
+            "previous_52_week_max": 10,
+            "previous_52_week_max_flag": "-",
+            "cumulative_ytd": 0,
+            "cumulative_ytd_flag": "-",
+            "cumulative_ytd_previous": 1,
+            "cumulative_ytd_previous_flag": "-"
+        },
+        {
+            "data_id": 9938984940,
+            "location_id": 1679494609,
+            "report_id": 5383522048,
+            "disease_id": 3367990528,
+            "current_week": 0,
+            "current_week_flag": "-",
+            "previous_52_week_max": 4,
+            "previous_52_week_max_flag": "-",
+            "cumulative_ytd": 0,
+            "cumulative_ytd_flag": "-",
+            "cumulative_ytd_previous": 0,
+            "cumulative_ytd_previous_flag": "-"
+        }
+    ]
+}

@@ -4,6 +4,7 @@ from google.cloud import bigquery
 import os
 from google.oauth2 import service_account
 import pandas as pd
+import json
 
 
 # Prompt the user for OpenAI API key at the very beginning
@@ -74,21 +75,92 @@ def is_relevant_query(prompt):
     """Check if the user query contains relevant keywords."""
     return any(keyword in prompt.lower() for keyword in st.session_state.keywords)
 
+# Queries for each table
+queries = {
+    "Disease": "SELECT * FROM `ba-882-group3.NNDSS_Dataset.Disease` LIMIT 5;",
+    "Location": "SELECT * FROM `ba-882-group3.NNDSS_Dataset.Location` LIMIT 5;",
+    "Report": "SELECT * FROM `ba-882-group3.NNDSS_Dataset.Report` LIMIT 5;",
+    "Weekly_Data": "SELECT * FROM `ba-882-group3.NNDSS_Dataset.Weekly_Data` LIMIT 5;"
+}
+
+# Fetch rows and format as JSON
+sample_data = {}
+for table, query in queries.items():
+    results = bq_client.query(query).result()
+    rows = [dict(row) for row in results]
+    sample_data[table] = rows 
+
+# Save as JSON for the chatbot
+with open("sample_data.json", "w") as f:
+    json.dump(sample_data, f, indent=4)
+
+print(json.dumps(sample_data, indent=4))
+schema_description = {
+    "DenormalizedTable": {
+        "columns": [
+            {"name": "disease_id", "description": "Unique identifier for a disease."},
+            {"name": "disease_name", "description": "Name of the disease."},
+            {"name": "location_id", "description": "Unique identifier for a location."},
+            {"name": "location_name", "description": "Name of the location (e.g., state, city)."},
+            {"name": "states", "description": "Abbreviated state name where the location is situated."},
+            {"name": "longitude", "description": "Longitude of the location."},
+            {"name": "latitude", "description": "Latitude of the location."},
+            {"name": "report_id", "description": "Unique identifier for a report."},
+            {"name": "mmwr_year", "description": "Year of the report (based on the MMWR calendar)."},
+            {"name": "mmwr_week", "description": "Week number of the report (based on the MMWR calendar)."},
+            {"name": "current_week", "description": "Data value for the current week."},
+            {"name": "cumulative_ytd", "description": "Cumulative year-to-date data for the current year."},
+            {"name": "previous_52_week_max", "description": "Maximum value from the previous 52 weeks."},
+            {"name": "previous_52_week_max_flag", "description": "Flag indicating any anomalies in the previous 52-week max."},
+            {"name": "cumulative_ytd_flag", "description": "Flag indicating any anomalies in the cumulative YTD data."}
+        ],
+        "description": "A denormalized table combining diseases, locations, reports, and weekly data."
+    }
+}
+
+
+
 # Function to construct SQL query from prompt
 def construct_query_from_prompt(prompt):
-    """Generate a SQL query based on the user's input."""
-    keywords_in_prompt = [k for k in st.session_state.keywords if k in prompt.lower()]
-    if not keywords_in_prompt:
+    """
+    Generate a SQL query dynamically based on the user's input using the denormalized table.
+    """
+    system_prompt = (
+    "You are a SQL assistant. Below is the schema and a few sample rows from each table "
+    "to help you understand the format of the data. Use this information to generate valid SQL queries "
+    "that match the data's format. Return only the SQL query as output. If the request is unclear or unrelated "
+    "to the schema, respond with 'null'.\n\n"
+    "Schema Information:\n"
+    "Disease: Columns include disease_id, disease_name.\n"
+    "Location: Columns include location_id, location_name, states, longitude, latitude.\n"
+    "Report: Columns include report_id, mmwr_year, mmwr_week.\n"
+    "Weekly_Data: Columns include data_id, location_id, report_id, disease_id, current_week.\n\n"
+    "Sample Rows:\n"
+    f"{json.dumps(sample_data, indent=4)}"
+    )
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Generate a SQL query for this request: {prompt}"},
+            ],
+        )
+        query = response.choices[0].message["content"].strip()
+
+        # Validate and clean query
+        if not query.lower().startswith("select") or "null" in query.lower():
+            st.warning("Generated query is invalid or unrelated to the schema.")
+            return None
+
+        st.write("Generated SQL Query:", query)  # For debugging
+        return query
+    except Exception as e:
+        st.warning(f"Error generating query: {e}")
         return None
 
-    keyword = keywords_in_prompt[0]
-    if "disease" in prompt.lower():
-        return f"SELECT * FROM `ba-882-group3.NNDSS_Dataset.Disease` WHERE LOWER(disease_name) LIKE '%{keyword}%' LIMIT 10"
-    elif "state" in prompt.lower():
-        return f"SELECT * FROM `ba-882-group3.NNDSS_Dataset.Location` WHERE LOWER(states) LIKE '%{keyword}%' LIMIT 10"
-    elif "year" in prompt.lower() or "mmwr_year" in prompt.lower():
-        return f"SELECT * FROM `ba-882-group3.NNDSS_Dataset.Report` WHERE mmwr_year = '{keyword}' LIMIT 10"
-    return None
+
 
 # Function to run BigQuery SQL queries
 def run_bigquery(sql_query):
@@ -166,8 +238,7 @@ def handle_query(selected_query):
             row["location_id"] = location_mapping.get(location_id, f"Unknown Location ID: {location_id}")
 
     # Format results for display
-    result_string = "\n".join([str(row) for row in query_results[:10]])  # Display top 10 rows
-    openai_prompt = f"The user selected query: '{selected_query}'. Description: {query_description}. Results:\n{result_string}\nPlease summarize this information."
+    openai_prompt = f"The user selected query: '{selected_query}'. Description: {query_description}. Results:\n{query_results}\nPlease summarize this information."
     analysis = ask_openai(openai_prompt)
 
     # Display query results as a table
@@ -186,7 +257,6 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-
 # Fetch list of query names from metadata table
 query_list_query = "SELECT QueryDescription FROM `ba-882-group3.NNDSS_Dataset.QueryMetadata` ORDER BY QueryDescription"
 query_description = run_bigquery(query_list_query)
@@ -197,12 +267,12 @@ if query_options:
     if st.button("Run Query"):
         with st.spinner("Running query and generating analysis..."):
             response = handle_query(selected_query)
-        st.success("Query Complete!")
         st.write(response)
 else:
     st.warning("No queries found in metadata. Please add queries to the QueryMetadata table.")
 
 
+# Chat input
 # Chat input
 if prompt := st.chat_input("Ask a question:"):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -214,18 +284,29 @@ if prompt := st.chat_input("Ask a question:"):
         if sql_query:
             query_results = run_bigquery(sql_query)
             if query_results:
-                # Format results and get analysis from OpenAI
-                result_string = "\n".join([str(row) for row in query_results[:10]])
-                assistant_response = f"**Query Results:**\n{result_string}"
-                analysis = ask_openai(f"Please analyze the following data:\n{result_string}")
-                assistant_response += f"\n\n**Analysis:**\n{analysis}"
+                # Format and display query results as a table
+                st.subheader("Query Results")
+                st.dataframe(pd.DataFrame(query_results[:10]))  # Show top 10 rows
+                st.caption("Only the top 10 rows are displayed. Please refine your query for more specific results.")
+
+                # Prepare results for OpenAI analysis
+                analysis = ask_openai(f"Please analyze the following data:\n{query_results}")
+
+                # Display analysis
+                st.subheader("Analysis")
+                st.markdown(analysis)
+                
+                # Construct full assistant response
+                assistant_response = f"Query executed successfully.\n\n**Analysis:**\n{analysis}"
             else:
                 assistant_response = "No results found for your query."
         else:
             assistant_response = "Unable to construct a query based on your input."
     else:
         assistant_response = "Your question doesn't seem related to the database."
-    # Display response
+
+    # Display response as chat message
     with st.chat_message("assistant"):
         st.markdown(assistant_response)
+
     st.session_state.messages.append({"role": "assistant", "content": assistant_response})
