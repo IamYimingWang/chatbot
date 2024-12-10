@@ -102,7 +102,6 @@ schema_description = {
             {"name": "disease_name", "description": "Name of the disease."},
             {"name": "location_id", "description": "Unique identifier for a location."},
             {"name": "location_name", "description": "Name of the location (e.g., state, city)."},
-            {"name": "states", "description": "Abbreviated state name where the location is situated."},
             {"name": "longitude", "description": "Longitude of the location."},
             {"name": "latitude", "description": "Latitude of the location."},
             {"name": "report_id", "description": "Unique identifier for a report."},
@@ -126,17 +125,16 @@ def construct_query_from_prompt(prompt):
     Generate a SQL query dynamically based on the user's input using the denormalized table.
     """
     system_prompt = (
-    "You are a SQL assistant. Below is the schema and a few sample rows from each table "
-    "to help you understand the format of the data. Use this information to generate valid SQL queries "
-    "that match the data's format. Return only the SQL query as output. If the request is unclear or unrelated "
-    "to the schema, respond with 'null'.\n\n"
-    "Schema Information:\n"
-    "Disease: Columns include disease_id, disease_name.\n"
-    "Location: Columns include location_id, location_name, states, longitude, latitude.\n"
-    "Report: Columns include report_id, mmwr_year, mmwr_week.\n"
-    "Weekly_Data: Columns include data_id, location_id, report_id, disease_id, current_week.\n\n"
-    "Sample Rows:\n"
-    f"{json.dumps(sample_data, indent=4)}"
+        "You are a SQL assistant. Based on the schema information below:\n"
+        f"{schema_description}\n"
+        "Generate a valid BigQuery SQL query using only the `ba-882-group3.NNDSS_Dataset.DenormalizedTable` table. "
+        "Do not include any explanation or text before or after the query. If the request is unclear or unrelated "
+        "to the schema, respond with 'null'."
+        "When asked to 'summarize' or provide a general overview of diseases, generate a query that lists "
+        "the unique diseases and their counts for the specified location and year if provided. "
+        "If no year is provided, summarize for all available years."
+        "When generating queries, ensure that any filter on 'location_name' uses the UPPER() function "
+        "to match the uppercase format of the data."
     )
 
     try:
@@ -149,16 +147,18 @@ def construct_query_from_prompt(prompt):
         )
         query = response.choices[0].message["content"].strip()
 
-        # Validate and clean query
         if not query.lower().startswith("select") or "null" in query.lower():
             st.warning("Generated query is invalid or unrelated to the schema.")
             return None
 
-        st.write("Generated SQL Query:", query)  # For debugging
+        # Display the SQL query in a collapsible expander
+        with st.expander("Show Generated SQL Query"):
+            st.code(query, language="sql")  # Display query with SQL syntax highlighting
         return query
     except Exception as e:
         st.warning(f"Error generating query: {e}")
         return None
+
 
 
 
@@ -247,10 +247,6 @@ def handle_query(selected_query):
     st.dataframe(pd.DataFrame(query_results_top10))  # Display the results as a table
     st.caption("Only the top 10 rows are displayed.")
 
-    # Display OpenAI-generated analysis
-    st.subheader("OpenAI Analysis")
-    st.markdown(analysis)
-
 # Display chat messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -287,7 +283,7 @@ if prompt := st.chat_input("Ask a question:"):
                 # Format and display query results as a table
                 st.subheader("Query Results")
                 st.dataframe(pd.DataFrame(query_results[:10]))  # Show top 10 rows
-                st.caption("Only the top 10 rows are displayed. Please refine your query for more specific results.")
+                st.caption("Only the top 10 rows are displayed.")
 
                 # Prepare results for OpenAI analysis
                 analysis = ask_openai(f"Please analyze the following data:\n{query_results}")
