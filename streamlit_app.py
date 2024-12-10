@@ -294,10 +294,6 @@ if prompt := st.chat_input("Ask a question:"):
 
                 # Prepare results for OpenAI analysis
                 analysis = ask_openai(f"Please analyze the following data:\n{query_results}")
-
-                # Display analysis
-                st.subheader("Analysis")
-                st.markdown(analysis)
                 
                 # Construct full assistant response
                 assistant_response = f"Query executed successfully.\n\n**Analysis:**\n{analysis}"
