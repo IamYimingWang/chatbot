@@ -208,9 +208,9 @@ def get_location_mapping():
         st.error(f"Error fetching location mapping: {e}")
         return {}
 
-# Function to process user-selected query
 def handle_query(selected_query):
-    """Fetch and execute a predefined query based on user's selection."""
+    """Fetch and execute a predefined query based on the user's selection."""
+    # Step 1: Fetch query metadata
     metadata_query = f"""
     SELECT QueryDescription, QuerySQL 
     FROM `ba-882-group3.NNDSS_Dataset.QueryMetadata` 
@@ -223,10 +223,12 @@ def handle_query(selected_query):
     query_description = metadata_results[0]['QueryDescription']
     sql_query = metadata_results[0]['QuerySQL']
 
+    # Step 2: Execute the query
     query_results = run_bigquery(sql_query)
     if not query_results:
         return f"No results found for query '{selected_query}'."
 
+    # Step 3: Map disease_id and location_id to their names
     disease_mapping = get_disease_mapping()
     location_mapping = get_location_mapping()
     for row in query_results:
@@ -237,21 +239,26 @@ def handle_query(selected_query):
             location_id = row["location_id"]
             row["location_id"] = location_mapping.get(location_id, f"Unknown Location ID: {location_id}")
 
-    # Format results for display
-    openai_prompt = f"The user selected query: '{selected_query}'. Description: {query_description}. Results:\n{query_results}\nPlease summarize this information."
+    # Step 4: Format results for OpenAI analysis
+    query_results_top10 = query_results[:10]
+    openai_prompt = (
+        f"The user selected query: '{selected_query}'.\n\n"
+        f"Description: {query_description}.\n\n"
+        f"Results:\n{query_results_top10}\n\n"
+        "Please provide a brief summary and insights based on these results."
+    )
     analysis = ask_openai(openai_prompt)
 
-    # Display query results as a table
+    # Step 5: Display the query results
     st.subheader("Query Results")
-    query_results_top10 = query_results[:10]
-    st.dataframe(pd.DataFrame(query_results_top10))  # Display the results as a table
+    st.dataframe(pd.DataFrame(query_results_top10))  # Show top 10 rows
     st.caption("Only the top 10 rows are displayed.")
 
-# Display chat messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
+    # Step 7: Construct assistant response
+    assistant_response = f"Query executed successfully.\n\n**Analysis:**\n{analysis}"
+    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+    with st.chat_message("assistant"):
+        st.markdown(assistant_response)
 
 # Fetch list of query names from metadata table
 query_list_query = "SELECT QueryDescription FROM `ba-882-group3.NNDSS_Dataset.QueryMetadata` ORDER BY QueryDescription"
@@ -263,7 +270,7 @@ if query_options:
     if st.button("Run Query"):
         with st.spinner("Running query and generating analysis..."):
             response = handle_query(selected_query)
-        st.write(response)
+
 else:
     st.warning("No queries found in metadata. Please add queries to the QueryMetadata table.")
 
